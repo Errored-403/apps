@@ -4,17 +4,16 @@ const bookmarks = [
     links: [
       {name: "c0mputers.org", url: "https://c0mputers.org"},
       {name: "John Le", url: "https://johnle.org" },
-      {name: "GitHub", url: "https://github.com"},
+      {name: "Web Notes", url: "https://c0mputers.org/notes"},
       {name: "Drive", url: "https://drive.google.com" },
     ],
   },
   {
-    title: "Media",
+    title: "Dev",
     links: [
-      {name: "YouTube", url: "https://youtube.com"},
-      {name: "Flixtor", url: "https://flixtorz.to"},
-      {name: "Crunchyroll", url: "https://crunchyroll.com"},
-      {name: "Amazon Prime", url: "https://www.amazon.com/Amazon-Video"},
+      {name: "HexEd.it", url: "https://hexed.it"},
+      {name: "VSCode Web", url: "https://vscode.dev"},
+      {name: "GitHub/9-5", url: "https://github.com/9-5"},
     ],
   },
   {
