@@ -1,0 +1,157 @@
+<html>
+<head>
+    <title>Reddit Alternative Front-End</title>
+    <script src="https://unpkg.com/react/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"></link>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const App = () => {
+            const [subreddits, setSubreddits] = useState([
+                { name: 'r/google' },
+                { name: 'r/example' }
+            ]);
+            const [selectedSubreddit, setSelectedSubreddit] = useState('r/reactjs');
+            const [posts, setPosts] = useState([]);
+            const [selectedPost, setSelectedPost] = useState(null);
+            const [comments, setComments] = useState([]);
+            const [sort, setSort] = useState('hot');
+            const [newSubreddit, setNewSubreddit] = useState('');
+
+            useEffect(() => {
+                fetch(`https://www.reddit.com/${selectedSubreddit}/${sort}.json`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const fetchedPosts = data.data.children.map(child => ({
+                            id: child.data.id,
+                            title: child.data.title,
+                            author: child.data.author,
+                            content: child.data.selftext,
+                            url: child.data.url,
+                            subreddit: child.data.subreddit_name_prefixed
+                        }));
+                        setPosts(fetchedPosts);
+                    });
+            }, [selectedSubreddit, sort]);
+
+            const viewPost = (postId) => {
+                const post = posts.find(p => p.id === postId);
+                setSelectedPost(post);
+                fetch(`https://www.reddit.com/${selectedSubreddit}/comments/${postId}.json`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const fetchedComments = data[1].data.children.map(child => ({
+                            author: child.data.author,
+                            body: child.data.body
+                        }));
+                        setComments(fetchedComments);
+                    });
+            };
+
+            const addSubreddit = () => {
+                if (newSubreddit && !subreddits.some(sub => sub.name === newSubreddit)) {
+                    setSubreddits([...subreddits, { name: newSubreddit }]);
+                    setNewSubreddit('');
+                }
+            };
+
+            return (
+                <div className="flex h-screen">
+                    <div className="w-1/4 bg-gray-900 p-4">
+                        <div className="flex items-center mb-4">
+                            <i className="fab fa-reddit text-white text-2xl"></i>
+                            <span className="ml-2 text-white text-xl">Reddit</span>
+                        </div>
+                        <div className="mb-4">
+                            <h2 className="text-gray-400">Subreddits</h2>
+                            {subreddits.map((subreddit, index) => (
+                                <div className="flex items-center mt-2 cursor-pointer" key={index} onClick={() => setSelectedSubreddit(subreddit.name)}>
+                                    <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center text-white">{subreddit.name.charAt(2)}</div>
+                                    <div className="ml-2 text-white">{subreddit.name}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-4">
+                            <input
+                                type="text"
+                                placeholder="Add subreddit"
+                                className="w-full p-2 bg-gray-800 text-white rounded"
+                                value={newSubreddit}
+                                onChange={(e) => setNewSubreddit(e.target.value)}
+                            />
+                            <button className="mt-2 w-full p-2 bg-gray-700 text-white rounded" onClick={addSubreddit}>Add Subreddit</button>
+                        </div>
+                    </div>
+                    <div className="w-3/4 bg-gray-800 p-4 flex flex-col">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center">
+                                <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center text-white">R</div>
+                                <div className="ml-2">
+                                    <div className="text-white">Reddit</div>
+                                    <div className="text-gray-400 text-sm">Posts</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center">
+                                <i className="fas fa-ellipsis-v text-white"></i>
+                            </div>
+                        </div>
+                        <div className="flex justify-between mb-4">
+                            <select className="p-2 bg-gray-700 text-white rounded" value={sort} onChange={(e) => setSort(e.target.value)}>
+                                <option value="hot">Hot</option>
+                                <option value="new">New</option>
+                                <option value="top">Top</option>
+                                <option value="rising">Rising</option>
+                            </select>
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                            {selectedPost ? (
+                                <div>
+                                    <div className="text-gray-400 text-sm">{selectedPost.subreddit}</div>
+                                    <div className="text-white bg-gray-700 p-2 rounded mt-1">{selectedPost.title}</div>
+                                    <div className="text-gray-400 text-sm mt-1">by {selectedPost.author}</div>
+                                    <div className="text-white bg-gray-700 p-2 rounded mt-1">{selectedPost.content}</div>
+                                    {selectedPost.url && <img src={selectedPost.url} alt="Post content" className="mt-2 rounded" />}
+                                    <div className="text-gray-400 text-sm mt-1">Comments</div>
+                                    {comments.map((comment, index) => (
+                                        <div className="text-white bg-gray-700 p-2 rounded mt-1" key={index}>
+                                            <div className="text-gray-400 text-sm">by {comment.author}</div>
+                                            <div>{comment.body}</div>
+                                        </div>
+                                    ))}
+                                    <button className="mt-4 p-2 bg-gray-700 text-white rounded" onClick={() => setSelectedPost(null)}>Back to Posts</button>
+                                </div>
+                            ) : (
+                                posts.map((post, index) => (
+                                    <div className="mb-4" key={index}>
+                                        <div className="text-gray-400 text-sm">{post.subreddit}</div>
+                                        <div className="text-white bg-gray-700 p-2 rounded mt-1 flex justify-between items-center">
+                                            <span>{post.title}</span>
+                                            <button className="ml-4 p-2 bg-gray-700 text-white rounded" onClick={() => viewPost(post.id)}>View Post</button>
+                                        </div>
+                                        <div className="text-gray-400 text-sm mt-1">by {post.author}</div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
