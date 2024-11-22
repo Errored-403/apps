@@ -1,60 +1,164 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PeerJS Example</title>
-    <script src="https://cdn.peerjs.com/peerjs.min.js"></script>
+    <title>Peer-to-Peer File Transfer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"></link>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+    </style>
 </head>
-<body>
-    <h1>PeerJS Example</h1>
-    <div>
-        <h2>Your Peer ID: <span id="peerIdDisplay"></span></h2>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-8">Peer-to-Peer File Transfer</h1>
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <div class="mb-4">
+                <label for="fileInput" class="block text-lg font-medium text-gray-700">Select a file to send:</label>
+                <input type="file" id="fileInput" class="mt-2 p-2 border border-gray-300 rounded-md w-full">
+            </div>
+            <div class="mb-4">
+                <button id="sendButton" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600">
+                    <i class="fas fa-paper-plane mr-2"></i>Send File
+                </button>
+            </div>
+            <div class="mb-4">
+                <label for="receivedFiles" class="block text-lg font-medium text-gray-700">Received Files:</label>
+                <ul id="receivedFiles" class="mt-2 p-2 border border-gray-300 rounded-md w-full h-40 overflow-y-auto">
+                    <!-- Received files will be listed here -->
+                </ul>
+            </div>
+            <div class="mb-4">
+                <label for="connectionId" class="block text-lg font-medium text-gray-700">Connection ID:</label>
+                <input type="text" id="connectionId" class="mt-2 p-2 border border-gray-300 rounded-md w-full">
+            </div>
+            <div class="mb-4">
+                <button id="connectButton" class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600">
+                    <i class="fas fa-link mr-2"></i>Connect
+                </button>
+            </div>
+            <div class="mb-4">
+                <label for="deviceConnectionId" class="block text-lg font-medium text-gray-700">Your Connection ID:</label>
+                <input type="text" id="deviceConnectionId" class="mt-2 p-2 border border-gray-300 rounded-md w-full" readonly>
+            </div>
+        </div>
     </div>
-    <input type="text" id="peerIdInput" placeholder="Enter Peer ID to connect" />
-    <button id="connect">Connect</button>
-    <input type="text" id="message" placeholder="Enter message" />
-    <button id="send">Send Message</button>
-    <div id="output"></div>
 
     <script>
-        // Create a new Peer instance and automatically generate a Peer ID
-        const peer = new Peer();
+        const fileInput = document.getElementById('fileInput');
+        const sendButton = document.getElementById('sendButton');
+        const receivedFiles = document.getElementById('receivedFiles');
+        const connectionIdInput = document.getElementById('connectionId');
+        const connectButton = document.getElementById('connectButton');
+        const deviceConnectionIdInput = document.getElementById('deviceConnectionId');
 
-        // Display the automatically generated Peer ID
-        peer.on('open', (id) => {
-            document.getElementById('peerIdDisplay').innerText = id;
-        });
+        let localConnection;
+        let remoteConnection;
+        let sendChannel;
+        let receiveChannel;
+        let connectionId;
 
-        // Connect to another peer
-        document.getElementById('connect').onclick = () => {
-            const peerIdToConnect = document.getElementById('peerIdInput').value;
-            const conn = peer.connect(peerIdToConnect);
+        const peerConnections = {};
 
-            conn.on('open', () => {
-                console.log('Connected to', peerIdToConnect);
-            });
+        // Generate a unique connection ID for this device
+        const deviceConnectionId = Math.random().toString(36).substring(2, 15);
+        deviceConnectionIdInput.value = deviceConnectionId;
 
-            conn.on('data', (data) => {
-                document.getElementById('output').innerText += `Received: ${data}\n`;
-            });
-        };
-
-        // Send a message to the connected peer
-        document.getElementById('send').onclick = () => {
-            const message = document.getElementById('message').value;
-            const conn = peer.connections[/* your connection ID here */][0]; // Get the connection
-            if (conn) {
-                conn.send(message); // Send the message
+        sendButton.addEventListener('click', () => {
+            const file = fileInput.files[0];
+            if (file) {
+                sendFile(file);
+            } else {
+                alert('Please select a file to send.');
             }
-        };
-
-        // Handle incoming connections
-        peer.on('connection', (conn) => {
-            conn.on('data', (data) => {
-                document.getElementById('output').innerText += `Received: ${data}\n`;
-            });
         });
+
+        connectButton.addEventListener('click', () => {
+            connectionId = connectionIdInput.value;
+            if (connectionId) {
+                createPeerConnection(connectionId);
+            } else {
+                alert('Please enter a connection ID.');
+            }
+        });
+
+        function createPeerConnection(id) {
+            localConnection = new RTCPeerConnection();
+            sendChannel = localConnection.createDataChannel('sendDataChannel');
+            sendChannel.binaryType = 'arraybuffer';
+
+            localConnection.onicecandidate = e => {
+                if (e.candidate) {
+                    sendSignal(id, { 'candidate': e.candidate });
+                }
+            };
+
+            localConnection.ondatachannel = e => {
+                receiveChannel = e.channel;
+                receiveChannel.binaryType = 'arraybuffer';
+                receiveChannel.onmessage = e => {
+                    const receivedFile = new Blob([e.data]);
+                    const url = URL.createObjectURL(receivedFile);
+                    const li = document.createElement('li');
+                    li.innerHTML = `<a href="${url}" download="received_file" class="text-blue-500 hover:underline">Received File</a>`;
+                    receivedFiles.appendChild(li);
+                };
+            };
+
+            localConnection.createOffer().then(offer => {
+                localConnection.setLocalDescription(offer);
+                sendSignal(id, { 'sdp': localConnection.localDescription });
+            });
+
+            peerConnections[id] = localConnection;
+        }
+
+        function sendSignal(id, data) {
+            fetch(`http://localhost:3000/signal/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+        }
+
+        function receiveSignal(id, data) {
+            if (data.sdp) {
+                peerConnections[id].setRemoteDescription(new RTCSessionDescription(data.sdp)).then(() => {
+                    if (data.sdp.type === 'offer') {
+                        peerConnections[id].createAnswer().then(answer => {
+                            peerConnections[id].setLocalDescription(answer);
+                            sendSignal(id, { 'sdp': peerConnections[id].localDescription });
+                        });
+                    }
+                });
+            } else if (data.candidate) {
+                peerConnections[id].addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        }
+
+        function sendFile(file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                sendChannel.send(e.target.result);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Simulate receiving a signal from the server
+        setInterval(() => {
+            fetch(`http://localhost:3000/signal/${deviceConnectionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data) {
+                        receiveSignal(deviceConnectionId, data);
+                    }
+                });
+        }, 1000);
     </script>
 </body>
 </html>
