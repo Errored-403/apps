@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PeerJS Example</title>
+    <script src="https://cdn.peerjs.com/peerjs.min.js"></script>
+</head>
+<body>
+    <h1>PeerJS Example</h1>
+    <div>
+        <h2>Your Peer ID: <span id="peerIdDisplay"></span></h2>
+    </div>
+    <input type="text" id="peerIdInput" placeholder="Enter Peer ID to connect" />
+    <button id="connect">Connect</button>
+    <input type="text" id="message" placeholder="Enter message" />
+    <button id="send">Send Message</button>
+    <div id="output"></div>
+
+    <script>
+        // Create a new Peer instance and automatically generate a Peer ID
+        const peer = new Peer();
+
+        // Display the automatically generated Peer ID
+        peer.on('open', (id) => {
+            document.getElementById('peerIdDisplay').innerText = id;
+        });
+
+        // Connect to another peer
+        document.getElementById('connect').onclick = () => {
+            const peerIdToConnect = document.getElementById('peerIdInput').value;
+            const conn = peer.connect(peerIdToConnect);
+
+            conn.on('open', () => {
+                console.log('Connected to', peerIdToConnect);
+            });
+
+            conn.on('data', (data) => {
+                document.getElementById('output').innerText += `Received: ${data}\n`;
+            });
+        };
+
+        // Send a message to the connected peer
+        document.getElementById('send').onclick = () => {
+            const message = document.getElementById('message').value;
+            const conn = peer.connections[/* your connection ID here */][0]; // Get the connection
+            if (conn) {
+                conn.send(message); // Send the message
+            }
+        };
+
+        // Handle incoming connections
+        peer.on('connection', (conn) => {
+            conn.on('data', (data) => {
+                document.getElementById('output').innerText += `Received: ${data}\n`;
+            });
+        });
+    </script>
+</body>
+</html>
